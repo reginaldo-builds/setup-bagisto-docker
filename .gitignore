@@ -1,0 +1,4 @@
+.configs/.env
+.configs/.env.testing
+workspace/bagisto/.env
+workspace/bagisto/.env.testing

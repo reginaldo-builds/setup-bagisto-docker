@@ -1,103 +1,248 @@
-# Bagisto Dockerization
+# Bagisto Docker – Setup Manual (Local e Base para Produção)
 
-The primary purpose of this repository is to provide a workspace along with all the necessary dependencies for Bagisto. In this repository, we include the following services:
+Este repositório fornece um **ambiente Docker simples, estável e controlado manualmente** para rodar o **Bagisto v2.3.6+**, sem scripts automáticos frágeis.
 
-- PHP-FPM
-- Nginx
-- MySQL
-- Redis
-- PHPMyAdmin
-- Elasticsearch
-- Kibana
-- Mailpit
+O foco é:
 
-## Supported Bagisto Version
+* Ambiente **local funcional**
+* Configuração **próxima de produção**
+* Total controle sobre instalação e debug
+* Compatibilidade futura com deploy (ex: Render)
 
-Currently, all these services are included to fulfill the dependencies for the following Bagisto version:
+---
 
-**Bagisto Version:** v2.3.6 and up.
+## 📦 Serviços incluídos
 
-However, there may be some specific cases where adjustments are necessary. We recommend reviewing the `Dockerfile` or the `docker-compose.yml` file for any required modifications.
+Este setup utiliza apenas os serviços **necessários**:
 
-> [!IMPORTANT]
-> If you are using the master version, there is a possibility that the current setup script in this repository is configured for **Bagisto dev-master**. The `.env` files located in the `.configs` folder are aligned with this version. If you plan to modify the script or switch the Bagisto version, please ensure that your changes remain compatible with the updated version. 
+* PHP 8.3 (PHP-FPM)
+* Nginx
+* MariaDB 10.6+
+* phpMyAdmin (somente local)
 
-## System Requirements
+> Serviços como Redis, Elasticsearch, Kibana e Mailpit **não foram incluídos** para manter o ambiente simples e previsível. Eles podem ser adicionados posteriormente se necessário.
 
-- System/Server requirements of Bagisto are mentioned [here](https://devdocs.bagisto.com/getting-started/before-you-start.html#system-requirements). Using Docker, these requirements will be fulfilled by docker images of PHP-FPM & Nginx, and our application will run in a multi-tier architecture.
+---
 
-- Install latest version of Docker and Docker Compose if it is not already installed. Docker supports Linux, MacOS and Windows Operating System. Click [Docker](https://docs.docker.com/install/) and [Docker Compose](https://docs.docker.com/compose/install/) to find their installation guide.
+## 🧩 Versão suportada do Bagisto
 
-## Installation
+* **Bagisto:** v2.3.6 ou superior
+* **PHP:** 8.3
+* **Banco:** MariaDB 10.6+
 
-- This is a straightforward repository with no complex configurations. Just update the `docker-compose.yml` file if needed, and you’re all set!
+---
 
-- Adjust your services as needed. For example, most Linux users have a UID of 1000. If your UID is different, make sure to update it according to your host machine.
+## 📋 Requisitos do sistema
 
-  ```yml
-  services:
-    php-fpm:
-      build:
-        args:
-          container_project_path: /var/www/html/
-          uid: 1000 # add your uid here
-          user: $USER
-        context: .
-        dockerfile: ./Dockerfile
-      image: php-fpm
-      ports:
-        - "5173:5173" # Vite dev server port
-      volumes:
-        - ./workspace/:/var/www/html/
+* Docker (última versão)
+* Docker Compose v2 (`docker compose`)
+* Linux, macOS ou Windows (com WSL2)
 
-    nginx:
-      image: nginx:latest
-      ports:
-        - "80:80" # adjust your port here, if you want to change
-      volumes:
-        - ./workspace/:/var/www/html/
-        - ./.configs/nginx/nginx.conf:/etc/nginx/conf.d/default.conf
-      depends_on:
-        - php-fpm
+---
+
+## 📁 Estrutura do projeto
+
+```text
+.
+├── docker-compose.yml
+├── Dockerfile
+├── workspace/           # Código do Bagisto (não versionar)
+├── .configs/
+│   ├── nginx/
+│   │   └── nginx.conf
+│   └── .env
+└── README.md
+```
+
+---
+
+## ⚙️ Configuração de ambiente (.env)
+
+Arquivo localizado em `.configs/.env`:
+
+```env
+APP_NAME=Bagisto
+APP_ENV=local
+APP_KEY=
+APP_DEBUG=true
+APP_URL=http://localhost
+APP_ADMIN_URL=admin
+APP_TIMEZONE=America/Fortaleza
+
+APP_LOCALE=pt_BR
+APP_FALLBACK_LOCALE=pt_BR
+APP_FAKER_LOCALE=pt_BR
+
+APP_CURRENCY=BRL
+
+DB_CONNECTION=mysql
+DB_HOST=mysql
+DB_PORT=3306
+DB_DATABASE=bagisto
+DB_USERNAME=bagisto_user
+DB_PASSWORD=senha_segura_aqui
+DB_ROOT_PASSWORD=senha_root_segura
+
+SESSION_DRIVER=file
+CACHE_STORE=file
+QUEUE_CONNECTION=sync
+FILESYSTEM_DISK=local
+```
+
+⚠️ **Nunca versionar esse arquivo com senhas reais**.
+
+---
+
+## 🐳 docker-compose.yml (resumo)
+
+* PHP-FPM + Nginx separados
+* MariaDB com volume persistente
+* phpMyAdmin apenas para desenvolvimento local
+
+> O arquivo completo deve ser revisado conforme seu ambiente.
+
+---
+
+## 🚀 Subida dos containers
+
+```bash
+docker compose up -d --build
+```
+
+Verifique se os containers estão rodando:
+
+```bash
+docker ps
+```
+
+---
+
+## 📥 Instalação MANUAL do Bagisto (recomendado)
+
+### 1️⃣ Acessar o container PHP
+
+```bash
+docker exec -it bagisto-php bash
+```
+
+---
+
+### 2️⃣ Instalar o Bagisto
+
+Dentro do container:
+
+```bash
+composer create-project bagisto/bagisto
+cd bagisto
+```
+
+---
+
+### 3️⃣ Copiar o arquivo `.env`
+
+No host:
+
+```bash
+cp .configs/.env workspace/bagisto/.env
+```
+
+---
+
+### 4️⃣ Gerar a chave da aplicação
+
+```bash
+php artisan key:generate
+```
+
+---
+
+### 5️⃣ Ajustar permissões (obrigatório)
+
+```bash
+chmod -R 775 storage bootstrap/cache
+```
+
+---
+
+### 6️⃣ Instalar o Bagisto
+
+```bash
+php artisan bagisto:install --skip-env-check
+```
+
+---
+
+### 7️⃣ Criar link de storage
+
+```bash
+php artisan storage:link
+```
+
+---
+
+## 🌐 Acesso ao sistema
+
+* Loja:
+
+  ```
+  http://localhost
   ```
 
-- In this repository, the initial focus was on meeting all project requirements. Whether your project is new or pre-existing, you can easily copy and paste it into the designated workspace directory. If you’re unsure where to begin, a shell script has been provided to streamline the setup process for you. To install and set up everything, simply run:
+* Admin:
 
-  ```sh
-  sh setup.sh
+  ```
+  http://localhost/admin
   ```
 
-## After installation
+Credenciais padrão:
 
-- To log in as admin.
+```text
+Email: admin@example.com
+Senha: admin123
+```
 
-  ```text
-  http(s)://your_server_endpoint/admin/login
+---
 
-  Email: admin@example.com
-  Password: admin123
-  ```
+## 🛠 phpMyAdmin (local)
 
-- To log in as customer. You can directly register as customer and then login.
+```text
+http://localhost:8080
+```
 
-  ```text
-  http(s):/your_server_endpoint/customer/register
-  ```
+* Host: mysql
+* Usuário: bagisto_user
+* Senha: definida no `.env`
 
-## Already Docker Expert?
+---
 
-- You can use this repository as your workspace. To build your container, simply run the following command:
+## ❌ O que NÃO é usado neste setup
 
-  ```sh
-  docker-compose build
-  ```
+* Script `setup.sh`
+* Git clone automático dentro do container
+* Composer rodando em runtime automático
+* Criação manual de banco via script
 
-- After building, you can run the container with:
+Essas abordagens foram removidas para garantir:
 
-  ```sh
-  docker-compose up -d
-  ```
+* previsibilidade
+* facilidade de debug
+* compatibilidade com produção
 
-- Now, you can access the container's shell and install [Bagisto](https://github.com/bagisto/bagisto).
+---
 
-In case of any issues or queries, raise your ticket at [Webkul Support](https://webkul.uvdesk.com/en/customer/create-ticket/).
+## 🧭 Próximos passos recomendados
+
+* Criar `docker-compose.prod.yml`
+* Ajustar Nginx (gzip, cache, headers)
+* Build de assets para produção
+* Deploy no Render (plano gratuito)
+
+---
+
+## ✅ Conclusão
+
+Este setup oferece:
+
+✔ Controle total ✔ Simplicidade ✔ Compatibilidade futura com produção ✔ Base sólida para escalar
+
+Para dúvidas ou extensões (Redis, Elasticsearch, Render), continue a configuração conforme a necessidade do projeto.
