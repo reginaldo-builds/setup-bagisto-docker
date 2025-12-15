@@ -1,248 +1,274 @@
-# Bagisto Docker – Setup Manual (Local e Base para Produção)
+# Bagisto com Docker (Nginx + PHP-FPM + MariaDB)
 
-Este repositório fornece um **ambiente Docker simples, estável e controlado manualmente** para rodar o **Bagisto v2.3.6+**, sem scripts automáticos frágeis.
+Este repositório entrega um ambiente **Docker totalmente funcional** para rodar o **Bagisto** (Laravel e-commerce) usando:
 
-O foco é:
-
-* Ambiente **local funcional**
-* Configuração **próxima de produção**
-* Total controle sobre instalação e debug
-* Compatibilidade futura com deploy (ex: Render)
-
----
-
-## 📦 Serviços incluídos
-
-Este setup utiliza apenas os serviços **necessários**:
-
-* PHP 8.3 (PHP-FPM)
 * Nginx
-* MariaDB 10.6+
-* phpMyAdmin (somente local)
+* PHP-FPM
+* MariaDB
+* PHPMyAdmin
 
-> Serviços como Redis, Elasticsearch, Kibana e Mailpit **não foram incluídos** para manter o ambiente simples e previsível. Eles podem ser adicionados posteriormente se necessário.
-
----
-
-## 🧩 Versão suportada do Bagisto
-
-* **Bagisto:** v2.3.6 ou superior
-* **PHP:** 8.3
-* **Banco:** MariaDB 10.6+
+O objetivo deste guia é permitir que qualquer pessoa clone o repositório e chegue a um **Bagisto 100% funcional**, evitando erros comuns de **permissão**, **.env**, **404 no Nginx** e **conexão com banco**.
 
 ---
 
-## 📋 Requisitos do sistema
+## 1. Pré-requisitos
 
-* Docker (última versão)
-* Docker Compose v2 (`docker compose`)
-* Linux, macOS ou Windows (com WSL2)
+* Docker
+* Docker Compose (plugin `docker compose`)
+* Git
+
+Verifique:
+
+```bash
+docker --version
+docker compose version
+git --version
+```
 
 ---
 
-## 📁 Estrutura do projeto
+## 2. Clonar o repositório
 
-```text
-.
+```bash
+git clone https://github.com/SEU_USUARIO/SEU_REPOSITORIO.git
+cd bagisto-docker
+```
+
+Estrutura esperada:
+
+```
+bagisto-docker/
 ├── docker-compose.yml
 ├── Dockerfile
-├── workspace/           # Código do Bagisto (não versionar)
-├── .configs/
-│   ├── nginx/
-│   │   └── nginx.conf
-│   └── .env
-└── README.md
+├── .env
+├── workspace/
+│   └── bagisto/
+└── .configs/
+    └── nginx/
+        └── nginx.conf
 ```
 
 ---
 
-## ⚙️ Configuração de ambiente (.env)
+## 3. Configurar o arquivo `.env` (Docker Compose)
 
-Arquivo localizado em `.configs/.env`:
+O arquivo `.env` **deve ficar no mesmo diretório do `docker-compose.yml`**.
+
+Exemplo mínimo:
 
 ```env
-APP_NAME=Bagisto
-APP_ENV=local
-APP_KEY=
-APP_DEBUG=true
-APP_URL=http://localhost
-APP_ADMIN_URL=admin
-APP_TIMEZONE=America/Fortaleza
-
-APP_LOCALE=pt_BR
-APP_FALLBACK_LOCALE=pt_BR
-APP_FAKER_LOCALE=pt_BR
-
-APP_CURRENCY=BRL
-
-DB_CONNECTION=mysql
-DB_HOST=mysql
-DB_PORT=3306
+DB_ROOT_PASSWORD=root
 DB_DATABASE=bagisto
 DB_USERNAME=bagisto_user
-DB_PASSWORD=senha_segura_aqui
-DB_ROOT_PASSWORD=senha_root_segura
-
-SESSION_DRIVER=file
-CACHE_STORE=file
-QUEUE_CONNECTION=sync
-FILESYSTEM_DISK=local
+DB_PASSWORD=bagisto_pass
 ```
 
-⚠️ **Nunca versionar esse arquivo com senhas reais**.
+> ⚠️ Se esse arquivo não existir, o Docker exibirá warnings como:
+> `The "DB_PASSWORD" variable is not set`
 
 ---
 
-## 🐳 docker-compose.yml (resumo)
-
-* PHP-FPM + Nginx separados
-* MariaDB com volume persistente
-* phpMyAdmin apenas para desenvolvimento local
-
-> O arquivo completo deve ser revisado conforme seu ambiente.
-
----
-
-## 🚀 Subida dos containers
+## 4. Subir os containers
 
 ```bash
-docker compose up -d --build
+docker compose build --no-cache
+docker compose up -d
 ```
 
-Verifique se os containers estão rodando:
+Verifique se tudo está rodando:
 
 ```bash
-docker ps
+docker compose ps
 ```
+
+Containers esperados:
+
+* bagisto-php
+* bagisto-nginx
+* bagisto-mysql
+* bagisto-phpmyadmin
 
 ---
 
-## 📥 Instalação MANUAL do Bagisto (recomendado)
+## 5. Instalar o Bagisto no container PHP
 
-### 1️⃣ Acessar o container PHP
-
-```bash
-docker exec -it bagisto-php bash
-```
-
----
-
-### 2️⃣ Instalar o Bagisto
-
-Dentro do container:
+Entre no container PHP:
 
 ```bash
-composer create-project bagisto/bagisto
-cd bagisto
+docker exec -it bagisto-php sh
 ```
 
----
-
-### 3️⃣ Copiar o arquivo `.env`
-
-No host:
+Acesse o diretório do Bagisto:
 
 ```bash
-cp .configs/.env workspace/bagisto/.env
+cd /var/www/html/bagisto
 ```
 
----
+### 5.1 Criar o `.env` do Laravel
 
-### 4️⃣ Gerar a chave da aplicação
+Se não existir:
+
+```bash
+cp .env.example .env
+```
+
+Gerar a key:
 
 ```bash
 php artisan key:generate
 ```
 
+### 5.2 Ajustar banco no `.env`
+
+Confirme que os dados batem com o Docker:
+
+```env
+DB_CONNECTION=mysql
+DB_HOST=mysql
+DB_PORT=3306
+DB_DATABASE=bagisto
+DB_USERNAME=bagisto_user
+DB_PASSWORD=bagisto_pass
+```
+
 ---
 
-### 5️⃣ Ajustar permissões (obrigatório)
+## 6. Corrigir permissões (PASSO OBRIGATÓRIO)
+
+Este passo evita o erro:
+
+```
+Failed to open stream: Permission denied
+```
+
+Execute **dentro do container PHP**:
 
 ```bash
+chown -R www-data:www-data storage bootstrap/cache
 chmod -R 775 storage bootstrap/cache
 ```
 
----
-
-### 6️⃣ Instalar o Bagisto
+Limpar caches:
 
 ```bash
-php artisan bagisto:install --skip-env-check
+php artisan optimize:clear
+php artisan view:clear
+php artisan config:clear
 ```
 
 ---
 
-### 7️⃣ Criar link de storage
+## 7. Rodar o instalador do Bagisto
+
+Ainda dentro do container:
 
 ```bash
-php artisan storage:link
+php artisan bagisto:install
+```
+
+Responda:
+
+* Application name: Bagisto
+* Application URL: [http://localhost](http://localhost)
+* Timezone: America/Fortaleza
+* Locale: Brazilian Portuguese
+* Currency: Brazilian Real
+* Database host: mysql
+* Database port: 3306
+* Database name: bagisto
+* Database user: bagisto_user
+* Database password: bagisto_pass
+
+Ao final, o banco será populado com sucesso.
+
+---
+
+## 8. Configuração correta do Nginx
+
+Arquivo:
+
+```
+.configs/nginx/nginx.conf
+```
+
+Conteúdo:
+
+```nginx
+server {
+    listen 80;
+    server_name localhost;
+
+    root /var/www/html/bagisto/public;
+    index index.php index.html;
+
+    charset utf-8;
+
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_pass bagisto-php:9000;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+}
+```
+
+Reinicie o Nginx:
+
+```bash
+docker compose restart nginx
 ```
 
 ---
 
-## 🌐 Acesso ao sistema
+## 9. Acessos
 
-* Loja:
+* Loja: [http://localhost](http://localhost)
+* Admin: [http://localhost/admin](http://localhost/admin)
+* PHPMyAdmin: [http://localhost:8080](http://localhost:8080)
 
-  ```
-  http://localhost
-  ```
+Credenciais padrão do Bagisto:
 
-* Admin:
-
-  ```
-  http://localhost/admin
-  ```
-
-Credenciais padrão:
-
-```text
-Email: admin@example.com
-Senha: admin123
-```
+* Usuário: [admin@example.com](mailto:admin@example.com)
+* Senha: admin123
 
 ---
 
-## 🛠 phpMyAdmin (local)
+## 10. Problemas comuns
 
-```text
-http://localhost:8080
-```
+### 404 no Nginx
 
-* Host: mysql
-* Usuário: bagisto_user
-* Senha: definida no `.env`
+* Root errado (deve ser `bagisto/public`)
+* Nginx não reiniciado
 
----
+### Permission denied
 
-## ❌ O que NÃO é usado neste setup
+* Não rodou `chown` e `chmod`
 
-* Script `setup.sh`
-* Git clone automático dentro do container
-* Composer rodando em runtime automático
-* Criação manual de banco via script
+### Banco não conecta
 
-Essas abordagens foram removidas para garantir:
-
-* previsibilidade
-* facilidade de debug
-* compatibilidade com produção
+* `DB_HOST` deve ser **mysql** (nome do serviço)
 
 ---
 
-## 🧭 Próximos passos recomendados
+## 11. Status final
 
-* Criar `docker-compose.prod.yml`
-* Ajustar Nginx (gzip, cache, headers)
-* Build de assets para produção
-* Deploy no Render (plano gratuito)
+✔ Docker configurado corretamente
+✔ Bagisto instalado
+✔ Nginx funcional
+✔ Permissões corrigidas
+✔ Pronto para desenvolvimento ou deploy
 
 ---
 
-## ✅ Conclusão
-
-Este setup oferece:
-
-✔ Controle total ✔ Simplicidade ✔ Compatibilidade futura com produção ✔ Base sólida para escalar
-
-Para dúvidas ou extensões (Redis, Elasticsearch, Render), continue a configuração conforme a necessidade do projeto.
+Se algo falhar, revise os passos **6 (permissões)** e **8 (Nginx)** — são os pontos mais críticos.
