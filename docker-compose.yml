@@ -8,9 +8,10 @@ services:
     container_name: bagisto-php
     volumes:
       - ./workspace:/var/www/html
+    env_file:
+      - ./.configs/.env
     depends_on:
-      mysql:
-        condition: service_started
+      - mysql
     restart: unless-stopped
 
   nginx:
@@ -43,7 +44,7 @@ services:
     ports:
       - "8080:80"
     environment:
-      PMA_HOST: bagisto-mysql
+      PMA_HOST: mysql
       PMA_USER: ${DB_USERNAME}
       PMA_PASSWORD: ${DB_PASSWORD}
       UPLOAD_LIMIT: 2G
